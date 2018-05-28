@@ -1,0 +1,1 @@
+{"nodes": [[0.0], [0.5], [1.0]], "elements": [[0, 1], [1, 2]], "meshsize": 0.5, "material": [1, 1], "etype": "l2", "gauss": 2, "boundary": [[0, 2], [0.0, 0.0]], "load": [[0, 2], [0, 0]]}
