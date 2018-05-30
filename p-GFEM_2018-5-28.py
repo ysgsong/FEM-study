@@ -56,7 +56,7 @@ def shapefunc(xi, X, p, h):
 
 #%% Main
 # Initialization 
-p = 1
+p = 2
 h = 0.5
 nodes = np.array([[0.0],[0.5],[1.0]])
 elems = np.array([[0,1],[1,2]])
@@ -74,7 +74,7 @@ F = np.zeros(dofs)
 
 # Gauss integration point
 gauss_k = grule(p+1)
-gauss_f = grule(p+3)
+gauss_f = grule(p+5)
 
 # Assembling stiffness matrix and force vector
 for e,conn in enumerate(elems):
@@ -91,8 +91,8 @@ for e,conn in enumerate(elems):
       for i, xi in enumerate(gauss_k.xi):
           N, B, phi = shapefunc(xi, X, p, h)
           j = h/2
-          BB = np.kron(B.T,np.identity(1))  '''?'''
-          k += gauss_k.wgt[i] * j * np.dot(np.dot(BB.T, C), BB)
+          BB = np.kron(B.T,np.identity(ldofs))  
+          k += gauss_k.wgt[i] * j * np.dot(np.dot(BB, C), BB.T)
       
       # assemble global K matrix
       K[eft[:, np.newaxis], eft] += k  
@@ -102,7 +102,7 @@ for e,conn in enumerate(elems):
           N, B, phi = shapefunc(xi, X, p, h)
           x = np.dot(X.T, phi)
           j = h/2
-          f[0:2] += gauss_f.wgt[i] * j * N[0:2] * BodyF(C,x) '''?'''
+          f[0:2] += gauss_f.wgt[i] * j * N[0:2] * BodyF(C,x) 
           
       # assemble global body force vector
       F[eft] += f
