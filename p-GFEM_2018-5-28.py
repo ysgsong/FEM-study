@@ -54,48 +54,92 @@ def BodyF(C,x):
     return f
 
 #%% Shape Functions
-def shapefunc(xi, X, p, h):
-    # Compute N
-    phi = 0.5*np.array([1-xi, 1+xi])
-    x = np.dot(X.T, phi)
+def stdFEM_shapefns(xi, X):
+    '''Provide the std.FEM shape functions.
+       [1D problem]
+       [2 nodes per element]
+    '''
+    N = 0.5*np.array([1 - xi, 1 + xi])
+    dN = np.array([[-1/2],[1/2]])
+    return N, dN
+
+def pGFEM_enrichment_fns(x, X, h, p):
+    '''Provide the enrichment functions [L1;L2] used for pGFEM.
+       [1D problem]
+       [2 nodes per element]
+       
+       where L1 is the enrichment function for the first node, L2 is for the second node.
+       The size of the enrichment functions increases with the increasing of p, 
+       if p = 1 (at least), no enrichment.    
+    '''
     L1 = np.array([]); L2 = np.array([])
     for i in range(p):
         L1 = np.append(L1,((x-X[0])/h)**i)
         L2 = np.append(L2,((x-X[1])/h)**i)
-        print(L1)
-        print(L2)
-    M1 = np.array([L1, L2])
-    M2 = np.array([[1, 0]])
-    LL = np.kron(M1, M2)
+    L = np.array([L1, L2])    
+    return L
+
+
+def shapefns(xi, X, p, h):
+    '''Compute the total shape function based on stdFEM_shapefns and 
+       pGFEM_enrichment_fns
+    '''
+    N_0, dN_0 = stdFEM_shapefns(xi, X)
+    x = np.dot(X.T, N_0)
+    L = pGFEM_enrichment_fns(x, X, h, p)
+    '''for calculation reason, this L will be further transferred into a matrix 
+       with only one element and a zero in each column.
+    '''    
+    calculation_matrix = np.array([[1, 0]])
+    LL = np.kron(L,calculation_matrix)
     LL[1] = np.roll(LL[1],1)
-    print(LL)
-    nx = np.array([phi, phi])
-    print(phi)
-    print('nx.T',nx.T)
-    M = np.dot(nx.T,LL)
-    print(M)
-    N = np.append(M[0,1:], M[1,1:])
+    '''for calculation reason, 
+       transfer the std.shapefns into a matrix [phi1 phi1; phi2 phi2]
+    '''
+    std_transf= (np.array([N_0,N_0])).T
+    N_matrix = np.dot(std_transf,LL)
+    N = np.append(N_matrix[0,1:], N_matrix[1,1:])
+
+    return N
+
+def derivative_shapefns(xi, X, h, p):
+    '''Compute the derivative of the total shape function for pGFEM
+    '''
+    N_0, dN_0 = stdFEM_shapefns(xi, X)
+    x = np.dot(X.T, N_0)
+    B = 2/h * dN_0
+    i = 0
+    b = b_1 = np.array([])
+    for n in range(p-1):
+        m = n + 1
+        for j in range(len(X)):
+            b_0 = 2/h * dN_0[i] * ((x-X[j])/h)**m + N_0[i]*((x-X[j])/h)**m*(1/(x-X[j]))
+            b = np.append(b,b_0)  #'''append: phi1*L11 phi1*L12 '''
+        b_1 = np.append(b_1,b) #'''append: phi1*L11 phi1*L12 phi1*L11^2 phi1*L12^2'''
+    b_2 = np.append(B[0], b_1)  #'''append: dphi1 phi1*L11 phi1*L12 phi1*L11^2 phi1*L12^2'''  
+    B_1 = b_2
     
-    # Compute B
-    dphi = np.array([[-1/2],[1/2]])  
-    B = 2/h * dphi
-    b = np.array([])
-    for i in range(len(phi)):
-        for n in range(p-1):
-            m = n + 1
-            for j in range(len(X)):
-                b_0 = 2/h * dphi[i] * ((x-X[j])/h)**m + phi[i]*((x-X[j])/h)**m*(1/(x-X[j]))
-                b = np.append(b,b_0)
-            
-    B = np.append
-    return N, B, phi        
+    i = 1
+    b = b_1 = np.array([])
+    for n in range(p-1):
+        m = n + 1
+        for j in range(len(X)):
+            b_0 = 2/h * dN_0[i] * ((x-X[j])/h)**m + N_0[i]*((x-X[j])/h)**m*(1/(x-X[j]))
+            b = np.append(b,b_0) 
+        b_1 = np.append(b_1,b)
+    b_2 = np.append(B[1], b_1)
+    B_2 = b_2
+
+    B_final = np.append(B_1, B_2)
+    
+    return B_final       
 
 #%% Solving K matrix singular problem
 
 
 #%% Main
 # Initialization 
-p = 3
+p = 4
 h = 0.5
 nodes = np.array([[0.0],[0.5],[1.0]])
 elems = np.array([[0,1],[1,2]])
@@ -123,15 +167,12 @@ for e,conn in enumerate(elems):
       k = np.zeros((ldofs, ldofs))
       f = np.zeros(ldofs)
       
-      #eft = np.array([dpn_0 * n + i for n in conn for i in range(dpn_0)])     
-      #eft_er = np.array([len(elems) + eft_0[1] + i for i in range(dpn)])
-      #eft = np.append(eft_0, eft_er)
-      
       eft = elementdofs(e, conn, p, dpn_0, nnodes)
       
       # Stiffness matrix
       for i, xi in enumerate(gauss_k.xi):
-          N, B, phi = shapefunc(xi, X, p, h)
+          N = shapefns(xi, X, p, h)
+          B = derivative_shapefns(xi, X, h, p)
           j = h/2
           BB = np.kron(B.T,np.identity(dpn_0))  
           k += gauss_k.wgt[i] * j * np.dot(np.dot(BB.T, C), BB)
@@ -141,8 +182,8 @@ for e,conn in enumerate(elems):
       
       # force vactor
       for i, xi in enumerate(gauss_f.xi):
-          N, B, phi = shapefunc(xi, X, p, h)
-          x = np.dot(X.T, phi)
+          N = shapefns(xi, X, p, h)
+          x = np.dot(X.T, N[0:2])
           j = h/2
           f += gauss_f.wgt[i] * j * N * BodyF(C,x) 
           
