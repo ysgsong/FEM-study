@@ -11,7 +11,40 @@ import sys, os, json, inspect
 import numpy as np
 import scipy.sparse as sp
 from scipy.sparse.linalg import spsolve
+# %% function to calculate element dof
+def elementdofs(e, conn, p, dpn_0, nnodes):
+    #eft = np.array([dpn_0 * n + i for n in conn for i in range(dpn_0)]) 
+    #if e == 0:
+    #   if p > 1:
+    #       eft = np.append(eft, [2+eft[-1]+i for i in range(4)])
+    #   if p > 2:
+    #       eft = np.append(eft, [eft[-1] + 3 + i for i in range(4)])
+    #if e > 0:
+    #   for i in range(p-1):
+    #       eft = np.append(eft, [eft[-1] + 3 + i for i in range(4)])
 
+    eft_0 = np.array([dpn_0 * n + i for n in conn for i in range(dpn_0)]) 
+    if p == 1:
+        eft = eft_0
+    elif p > 1:    
+         if e == 0:
+            a1 = np.array([eft_0[1] + 2 + i for i in range(2)])
+            b1 = np.array([eft_0[1] + 4 + i for i in range(2)])
+         if e == 1:
+            a1 = np.array([eft_0[1] + 3 + i for i in range(2)])
+            b1 = np.array([eft_0[1] + 5 + i for i in range(2)])
+         #if p > 2:
+         for i in range (p-2):
+                a2 = np.array([2*(nnodes - 1) + 1 + a1[-1] + i for i in range(2)])
+                b2 = np.array([2*(nnodes - 1) + 1 + b1[-1] + i for i in range(2)])
+                a1 = np.append(a1,a2)
+                b1 = np.append(b1,b2)
+    
+         eft_1 = np.append(eft_0[0], a1)
+         eft_2 = np.append(eft_0[1], b1)
+         eft = np.append(eft_1, eft_2)
+  
+    return eft
 
 #%% Body Forces
 def BodyF(C,x):
@@ -36,19 +69,25 @@ def shapefunc(xi, X, p, h):
     LL = np.kron(M1, M2)
     LL[1] = np.roll(LL[1],1)
     print(LL)
-    N = np.dot(phi, LL)
+    nx = np.array([phi, phi])
+    print(phi)
+    print('nx.T',nx.T)
+    M = np.dot(nx.T,LL)
+    print(M)
+    N = np.append(M[0,1:], M[1,1:])
     
     # Compute B
     dphi = np.array([[-1/2],[1/2]])  
     B = 2/h * dphi
     b = np.array([])
-    if p >=2:
+    for i in range(len(phi)):
         for n in range(p-1):
-            i = n + 1
-            for j in range(2):
-                b_0 = 2/h * dphi[j] * ((x-X[j])/h)**i + phi[j]*((x-X[j])/h)**i*(1/(x-X[j]))
+            m = n + 1
+            for j in range(len(X)):
+                b_0 = 2/h * dphi[i] * ((x-X[j])/h)**m + phi[i]*((x-X[j])/h)**m*(1/(x-X[j]))
                 b = np.append(b,b_0)
-        B = np.append(B,b)
+            
+    B = np.append
     return N, B, phi        
 
 #%% Solving K matrix singular problem
@@ -56,14 +95,15 @@ def shapefunc(xi, X, p, h):
 
 #%% Main
 # Initialization 
-p = 2
+p = 3
 h = 0.5
 nodes = np.array([[0.0],[0.5],[1.0]])
 elems = np.array([[0,1],[1,2]])
 bcs = [[0, 2], [0.0, 0.0]]
 load = [[0, 2], [0, 0]]
 nnodes, dpn_0 = nodes.shape    # node count and dofs per node
-dpn_er = 1                     # enriched dof per node, so one enrichment per node
+nep = p-1                      # number of enrichment per node
+dpn_er = nep * 2               # enriched dof per node
 dpn = dpn_0 + dpn_er           # total dof per node
 dofs = dpn * nnodes            # total number of dofs 
 C = 1                          # material C matrix
@@ -83,16 +123,18 @@ for e,conn in enumerate(elems):
       k = np.zeros((ldofs, ldofs))
       f = np.zeros(ldofs)
       
-      eft_0 = np.array([dpn_0 * n + i for n in conn for i in range(dpn_0)])
-      eft_er = np.array([len(elems) + eft_0[1] + i for i in range(dpn)])
-      eft = np.append(eft_0, eft_er)
+      #eft = np.array([dpn_0 * n + i for n in conn for i in range(dpn_0)])     
+      #eft_er = np.array([len(elems) + eft_0[1] + i for i in range(dpn)])
+      #eft = np.append(eft_0, eft_er)
+      
+      eft = elementdofs(e, conn, p, dpn_0, nnodes)
       
       # Stiffness matrix
       for i, xi in enumerate(gauss_k.xi):
           N, B, phi = shapefunc(xi, X, p, h)
           j = h/2
-          BB = np.kron(B.T,np.identity(ldofs))  
-          k += gauss_k.wgt[i] * j * np.dot(np.dot(BB, C), BB.T)
+          BB = np.kron(B.T,np.identity(dpn_0))  
+          k += gauss_k.wgt[i] * j * np.dot(np.dot(BB.T, C), BB)
       
       # assemble global K matrix
       K[eft[:, np.newaxis], eft] += k  
@@ -102,7 +144,7 @@ for e,conn in enumerate(elems):
           N, B, phi = shapefunc(xi, X, p, h)
           x = np.dot(X.T, phi)
           j = h/2
-          f[0:2] += gauss_f.wgt[i] * j * N[0:2] * BodyF(C,x) 
+          f += gauss_f.wgt[i] * j * N * BodyF(C,x) 
           
       # assemble global body force vector
       F[eft] += f

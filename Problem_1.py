@@ -51,7 +51,7 @@ for i in range(5):
    er_q.append(er)
 
 C_rate_q = (math.log(er_q[-1])-math.log(er_q[0]))/(math.log(h_q[-1])-math.log(h_q[0]))
-C_rate_q = round(C_rate_q,2)
+C_rate_q = round(C_rate_q,7)
 
 # plot
 plt.figure(1)
