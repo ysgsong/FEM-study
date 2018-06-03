@@ -1,11 +1,9 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Advanced Finite Methods Assignment 1
-Problem 1 Question 5 p-GFEM
-
-Created by: Yi Song
-30-05-2018
-
+test p = 2
 """
+
 from gauss import grule
 import sys, os, json, inspect
 import numpy as np
@@ -72,10 +70,8 @@ def pGFEM_enrichment_fns(x, X, h, p):
        The size of the enrichment functions increases with the increasing of p, 
        if p = 1 (at least), no enrichment.    
     '''
-    L1 = np.array([]); L2 = np.array([])
-    for i in range(p):
-        L1 = np.append(L1,((x-X[0])/h)**i)
-        L2 = np.append(L2,((x-X[1])/h)**i)
+    L1 = np.array([1,((x-X[0])/h)])
+    L2 = np.array([1,((x-X[1])/h)])
     L = np.array([L1, L2])    
     return L
 
@@ -104,27 +100,19 @@ def shapefns(xi, X, p, h):
     '''
     B = 2/h * dN_0
     i = 0
-    b_1 = np.array([])
-    for n in range(p-1):
-        m = n + 1
-        b = np.array([])
-        for j in range(len(X)):
-            b_0 = 2/h * dN_0[i] * ((x-X[j])/h)**m + N_0[i]*((x-X[j])/h)**m*(1/(x-X[j]))
-            b = np.append(b,b_0)  #'''append: phi1*L11 phi1*L12 '''
-        b_1 = np.append(b_1,b) #'''append: phi1*L11 phi1*L12 phi1*L11^2 phi1*L12^2'''
-    b_2 = np.append(B[0], b_1)  #'''append: dphi1 phi1*L11 phi1*L12 phi1*L11^2 phi1*L12^2'''  
+    b = np.array([])
+    for j in range(len(X)):
+        b_0 = 2/h * dN_0[i] * ((x-X[j])/h) + N_0[i]*((x-X[j])/h)*(1/(x-X[j]))
+        b = np.append(b,b_0)  #'''append: phi1*L11 phi1*L12 '''
+    b_2 = np.append(B[0], b)  #'''append: dphi1 phi1*L11 phi1*L12 phi1*L11^2 phi1*L12^2'''  
     B_1 = b_2
     
     i = 1
-    b_1 = np.array([])
-    for n in range(p-1):
-        m = n + 1
-        b = np.array([])
-        for j in range(len(X)):
-            b_0 = 2/h * dN_0[i] * ((x-X[j])/h)**m + N_0[i]*((x-X[j])/h)**m*(1/(x-X[j]))
-            b = np.append(b,b_0) 
-        b_1 = np.append(b_1,b)
-    b_2 = np.append(B[1], b_1)
+    b = np.array([])
+    for j in range(len(X)):
+        b_0 = 2/h * dN_0[i] * ((x-X[j])/h) + N_0[i]*((x-X[j])/h)*(1/(x-X[j]))
+        b = np.append(b,b_0) 
+    b_2 = np.append(B[1], b)
     B_2 = b_2
 
     B_final = np.append(B_1, B_2)
@@ -136,7 +124,7 @@ def shapefns(xi, X, p, h):
 
 #%% Main
 # Initialization 
-p = 3
+p = 2
 h = 0.5
 nodes = np.array([[0.0],[0.5],[1.0]])
 elems = np.array([[0,1],[1,2]])
@@ -165,7 +153,6 @@ for e,conn in enumerate(elems):
       f = np.zeros(ldofs)
       
       eft = elementdofs(e, conn, p, dpn_0, nnodes)
-      print(eft)
       
       # Stiffness matrix
       for i, xi in enumerate(gauss_k.xi):
@@ -195,13 +182,6 @@ K[zero, :] = 0;             # zero-out rows/columns
 K[zero, zero] = 1           # add 1 in the diagonal
 F[zero] = bcs[1]            # prescribed values
 
-
-for i in range(15):
-    for j in range(15):
-        if abs(K[i,j]) < 10**(-15):
-            K[i,j] = 0
-            
-
 # apply loads
 F[load[0]] += load[1]
 
@@ -212,9 +192,5 @@ u = spsolve(K.tocsr(), F)
 U = 0.5 * np.dot((u.T*K), u)     
       
       
-      
-      
-      
-      
-      
-      
+
+
