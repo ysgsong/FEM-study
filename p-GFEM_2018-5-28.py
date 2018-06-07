@@ -1,10 +1,8 @@
 """
 Advanced Finite Methods Assignment 1
 Problem 1 Question 5 p-GFEM
-
 Created by: Yi Song
 30-05-2018
-
 """
 from gauss import grule
 import sys, os, json, inspect
@@ -109,7 +107,7 @@ def shapefns(xi, X, p, h):
         m = n + 1
         b = np.array([])
         for j in range(len(X)):
-            b_0 = 2/h * dN_0[i] * ((x-X[j])/h)**m + N_0[i]*((x-X[j])/h)**m*(1/(x-X[j]))
+            b_0 = 2/h * dN_0[i] * ((x-X[j])/h)**m + m * N_0[i]*((x-X[j])/h)**m*(1/(x-X[j]))
             b = np.append(b,b_0)  #'''append: phi1*L11 phi1*L12 '''
         b_1 = np.append(b_1,b) #'''append: phi1*L11 phi1*L12 phi1*L11^2 phi1*L12^2'''
     b_2 = np.append(B[0], b_1)  #'''append: dphi1 phi1*L11 phi1*L12 phi1*L11^2 phi1*L12^2'''  
@@ -121,7 +119,7 @@ def shapefns(xi, X, p, h):
         m = n + 1
         b = np.array([])
         for j in range(len(X)):
-            b_0 = 2/h * dN_0[i] * ((x-X[j])/h)**m + N_0[i]*((x-X[j])/h)**m*(1/(x-X[j]))
+            b_0 = 2/h * dN_0[i] * ((x-X[j])/h)**m + m * N_0[i]*((x-X[j])/h)**m*(1/(x-X[j]))
             b = np.append(b,b_0) 
         b_1 = np.append(b_1,b)
     b_2 = np.append(B[1], b_1)
@@ -150,15 +148,19 @@ def singular_solver(K,F):
     eps   = 5*10**(-10)
     K_eps = K_new + eps*np.eye(9)
     
-    u_i = spsolve(K_eps, F_new)
+    u_i = np.linalg.solve(K_eps, F_new)
     print(u_i)
     while True:
           print('here')
-          r_i = F_new - K_eps.dot(u_i)
-          e_i = spsolve(K_eps, r_i)
+          r_i = F_new - K_new.dot(u_i)
+          e_i = np.linalg.solve(K_eps, r_i)
           u_i += e_i
-          test_flag = np.linalg.norm(np.dot((e_i.T * K_new),e_i) / np.dot((u_i.T * K_new),u_i))
-          if test_flag < 1**(-10):
+ 
+          test_flag = np.dot((e_i.T * K_new),e_i) / np.dot((u_i.T * K_new),u_i)
+          test_flag[0] = test_flag[2] = 0
+          flag = np.linalg.norm(test_flag)
+          print('flag',flag)
+          if flag < eps:
              break
 
     u = np.matmul(T,u_i) 
@@ -184,8 +186,8 @@ K = sp.lil_matrix((dofs,dofs))
 F = np.zeros(dofs)
 
 # Gauss integration point
-gauss_k = grule(p**2)
-gauss_f = grule(29)
+gauss_k = grule(p+1)
+gauss_f = grule(p+5)
 
 # Assembling stiffness matrix and force vector
 for e,conn in enumerate(elems):
@@ -231,14 +233,9 @@ F[load[0]] += load[1]
 # Solving system of equations
 u = singular_solver(K,F)
 
+#u = spsolve(K.tocsr(), F)
 
 # Calculating strain energy
 U = 0.5 * np.dot((u.T*K), u)     
-      
-      
-      
-      
-      
-      
       
       
