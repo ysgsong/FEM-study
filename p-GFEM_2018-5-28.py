@@ -131,9 +131,9 @@ def shapefns(xi, X, p, h):
 
 #%% Solving K matrix singular problem
 def singular_solver(K,F):
-    T = np.zeros((9,9))
-    for i in range(9):
-        for j in range(9):        
+    T = np.zeros((15,15))
+    for i in range(15):
+        for j in range(15):        
             if i == j: 
                 kron = 1
                 T[i,j] = kron / np.sqrt(K[i,j])
@@ -146,7 +146,7 @@ def singular_solver(K,F):
     F_new = T @ F            # F of the new system
  
     eps   = 5*10**(-10)
-    K_eps = K_new + eps*np.eye(9)
+    K_eps = K_new + eps*np.eye(15)
     
     u_i = np.linalg.solve(K_eps, F_new)
     print(u_i)
@@ -168,7 +168,7 @@ def singular_solver(K,F):
        
 #%% Main
 # Initialization 
-p = 2
+p = 3
 h = 0.5
 nodes = np.array([[0.0],[0.5],[1.0]])
 elems = np.array([[0,1],[1,2]])
@@ -201,9 +201,9 @@ for e,conn in enumerate(elems):
       
       # Stiffness matrix
       for i, xi in enumerate(gauss_k.xi):
-          N, B, N_0, dN_0 = shapefns(xi, X, p, h)
+          N_k, B_k, N_0_k, dN_0_k = shapefns(xi, X, p, h)
           j = h/2
-          BB = np.kron(B.T,np.identity(dpn_0))  
+          BB = np.kron(B_k.T,np.identity(dpn_0))  
           k += gauss_k.wgt[i] * j * np.dot(np.dot(BB.T, C), BB)
       
       # assemble global K matrix
