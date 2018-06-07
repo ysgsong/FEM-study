@@ -132,11 +132,41 @@ def shapefns(xi, X, p, h):
     return N,B_final,N_0,dN_0      
 
 #%% Solving K matrix singular problem
+def singular_solver(K,F):
+    T = np.zeros((9,9))
+    for i in range(9):
+        for j in range(9):        
+            if i == j: 
+                kron = 1
+                T[i,j] = kron / np.sqrt(K[i,j])
+            elif i != j: 
+                kron = 0
+                T[i,j] = 0 
+    #print('T',T)         
+    K_new = (T @ K) @ T      # K of the new system
+    #print(K_new)
+    F_new = T @ F            # F of the new system
+ 
+    eps   = 5*10**(-10)
+    K_eps = K_new + eps*np.eye(9)
+    
+    u_i = spsolve(K_eps, F_new)
+    print(u_i)
+    while True:
+          print('here')
+          r_i = F_new - K_eps.dot(u_i)
+          e_i = spsolve(K_eps, r_i)
+          u_i += e_i
+          test_flag = np.linalg.norm(np.dot((e_i.T * K_new),e_i) / np.dot((u_i.T * K_new),u_i))
+          if test_flag < 1**(-10):
+             break
 
-
+    u = np.matmul(T,u_i) 
+    return u
+       
 #%% Main
 # Initialization 
-p = 3
+p = 2
 h = 0.5
 nodes = np.array([[0.0],[0.5],[1.0]])
 elems = np.array([[0,1],[1,2]])
@@ -154,8 +184,8 @@ K = sp.lil_matrix((dofs,dofs))
 F = np.zeros(dofs)
 
 # Gauss integration point
-gauss_k = grule(p+1)
-gauss_f = grule(p+5)
+gauss_k = grule(p**2)
+gauss_f = grule(29)
 
 # Assembling stiffness matrix and force vector
 for e,conn in enumerate(elems):
@@ -195,18 +225,12 @@ K[zero, :] = 0;             # zero-out rows/columns
 K[zero, zero] = 1           # add 1 in the diagonal
 F[zero] = bcs[1]            # prescribed values
 
-
-for i in range(15):
-    for j in range(15):
-        if abs(K[i,j]) < 10**(-15):
-            K[i,j] = 0
-            
-
 # apply loads
 F[load[0]] += load[1]
 
 # Solving system of equations
-u = spsolve(K.tocsr(), F)
+u = singular_solver(K,F)
+
 
 # Calculating strain energy
 U = 0.5 * np.dot((u.T*K), u)     
