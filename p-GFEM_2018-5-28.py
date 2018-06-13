@@ -131,14 +131,12 @@ def shapefns(xi, X, p, h):
 
 #%% Solving K matrix singular problem
 def singular_solver(K,F):
-    T = np.zeros((15,15))
-    for i in range(15):
-        for j in range(15):        
+    T = np.zeros((9,9))
+    for i in range(9):
+        for j in range(9):        
             if i == j: 
-                kron = 1
-                T[i,j] = kron / np.sqrt(K[i,j])
+                T[i,j] = 1 / np.sqrt(K[i,j])
             elif i != j: 
-                kron = 0
                 T[i,j] = 0 
     #print('T',T)         
     K_new = (T @ K) @ T      # K of the new system
@@ -146,7 +144,7 @@ def singular_solver(K,F):
     F_new = T @ F            # F of the new system
  
     eps   = 5*10**(-10)
-    K_eps = K_new + eps*np.eye(15)
+    K_eps = K_new + eps*np.eye(9)
     
     u_i = np.linalg.solve(K_eps, F_new)
     print(u_i)
@@ -156,19 +154,19 @@ def singular_solver(K,F):
           e_i = np.linalg.solve(K_eps, r_i)
           u_i += e_i
  
-          test_flag = np.dot((e_i.T * K_new),e_i) / np.dot((u_i.T * K_new),u_i)
+          test_flag = np.dot((e_i.T * K_new),e_i) / np.dot(((u_i-e_i).T * K_new),(u_i-e_i))
           test_flag[0] = test_flag[2] = 0
           flag = np.linalg.norm(test_flag)
           print('flag',flag)
           if flag < eps:
              break
 
-    u = np.matmul(T,u_i) 
-    return u
+   # u = np.matmul(T,u_i) 
+    return u_i, K_new
        
 #%% Main
 # Initialization 
-p = 3
+p = 2
 h = 0.5
 nodes = np.array([[0.0],[0.5],[1.0]])
 elems = np.array([[0,1],[1,2]])
@@ -231,11 +229,11 @@ F[zero] = bcs[1]            # prescribed values
 F[load[0]] += load[1]
 
 # Solving system of equations
-u = singular_solver(K,F)
+u_new, K_new = singular_solver(K,F)
 
 #u = spsolve(K.tocsr(), F)
 
 # Calculating strain energy
-U = 0.5 * np.dot((u.T*K), u)     
+U = 0.5 * np.dot(np.dot(u_new.T,K_new), u_new)     
       
       
